@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.python-version
+
+# uv
+.uv-cache/
+
+# Tooling caches
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+
+# Env / secrets
+.env
+.env.local
+*.pem
+
+# Data / index artifacts (the sqlite-vec file lives here in local runs)
+data/
+*.db
+!tests/fixtures/index.db
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
