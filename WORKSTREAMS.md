@@ -18,11 +18,12 @@ Launch briefs for the 6 parallel Claude Code sessions that build v0. Each sessio
 ## Launch checklist (every session)
 
 1. `cd` into your worktree dir.
-2. `uv sync` — should be near-instant (lockfile is shared).
-3. `uv run pytest -q` — confirm the 6 smoke tests pass.
-4. Read [CLAUDE.md](./CLAUDE.md) §2 + §4.
-5. Read your WS prompt below. Implement.
-6. Open a PR back to `main` when your DoD is hit.
+2. `uv run pytest -q` — confirm the 6 smoke tests pass. uv lazy-installs the venv from the shared wheel cache; no explicit `uv sync` needed unless you're adding a new dep.
+3. Read [CLAUDE.md](./CLAUDE.md) §2 + §4.
+4. Read your WS prompt below. Implement.
+5. Open a PR back to `main` when your DoD is hit.
+
+> If you do run `uv sync` and it fails on a transient pypi timeout, `uv run <cmd>` works offline against the local cache. Use `uv sync --offline` to skip the index refresh deliberately.
 
 Verified model availability (Anthropic + Voyage dry calls, 2026-06-09):
 - LLM models in account: `claude-haiku-4-5`, `claude-sonnet-4-6`, `claude-opus-4-5/4-6/4-7/4-8`.
