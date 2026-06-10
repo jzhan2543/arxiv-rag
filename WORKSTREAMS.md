@@ -18,7 +18,8 @@ Launch briefs for the 6 parallel Claude Code sessions that build v0. Each sessio
 ## Launch checklist (every session)
 
 1. `cd` into your worktree dir.
-2. `uv run pytest -q` — confirm the 6 smoke tests pass. uv lazy-installs the venv from the shared wheel cache; no explicit `uv sync` needed unless you're adding a new dep.
+2. **Create the venv on a Python with sqlite extension support** (sqlite-vec needs `enable_load_extension`; the pyenv-built Python on this machine lacks it): `uv venv --python /opt/homebrew/bin/python3.12`. Docker and CI Pythons are unaffected.
+3. `uv run pytest -q` — confirm the smoke tests pass. uv lazy-installs the venv from the shared wheel cache; no explicit `uv sync` needed unless you're adding a new dep.
 3. Read [CLAUDE.md](./CLAUDE.md) §2 + §4.
 4. Read your WS prompt below. Implement.
 5. Open a PR back to `main` when your DoD is hit.
