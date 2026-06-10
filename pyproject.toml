@@ -12,7 +12,6 @@ dependencies = [
     "voyageai",
     "sqlite-vec",
     "arxiv",
-    "ragas",
 ]
 
 [dependency-groups]
@@ -47,7 +46,7 @@ explicit_package_bases = true
 namespace_packages = true
 
 [[tool.mypy.overrides]]
-module = ["sqlite_vec.*", "voyageai.*", "ragas.*", "arxiv.*"]
+module = ["sqlite_vec.*", "voyageai.*", "arxiv.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
