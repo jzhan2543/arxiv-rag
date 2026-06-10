@@ -8,7 +8,6 @@ dependencies = [
     "fastapi",
     "uvicorn[standard]",
     "pydantic>=2",
-    "pydantic-ai",
     "anthropic",
     "voyageai",
     "sqlite-vec",
@@ -48,7 +47,7 @@ explicit_package_bases = true
 namespace_packages = true
 
 [[tool.mypy.overrides]]
-module = ["sqlite_vec.*", "voyageai.*", "ragas.*", "arxiv.*", "pydantic_ai.*"]
+module = ["sqlite_vec.*", "voyageai.*", "ragas.*", "arxiv.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
