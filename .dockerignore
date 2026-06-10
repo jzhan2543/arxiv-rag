@@ -7,5 +7,9 @@ __pycache__/
 .pytest_cache
 tests/
 *.db
+# ...except the committed semantic fixture index — it is baked into the image
+# as the v0 corpus (Dockerfile COPY fails without this exception; negations
+# must follow the patterns they override):
+!tests/fixtures/index.db
 .env
 .github/

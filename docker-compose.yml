@@ -1,0 +1,31 @@
+# Local end-to-end stack. The shared ./data volume mimics the GCS-mounted
+# index locally: `ingest` writes /data/index.db, `api` reads it (INDEX_PATH
+# overrides the baked-in image default).
+#
+#   docker compose up api          # serve http://localhost:8080
+#   docker compose run --rm ingest # one-off full arXiv ingest (live, ~15 min)
+#
+# Variables come from .env in this directory (compose reads it automatically).
+services:
+  api:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - VOYAGE_API_KEY=${VOYAGE_API_KEY}
+      - INDEX_PATH=/data/index.db
+    volumes:
+      - ./data:/data
+
+  # Profile-gated so a plain `docker compose up` never triggers a live
+  # 300-paper arXiv crawl by accident; `compose run ingest` works regardless.
+  ingest:
+    profiles: ["ingest"]
+    build: .
+    command: ["python", "-m", "app.ingest"]
+    environment:
+      - VOYAGE_API_KEY=${VOYAGE_API_KEY}
+      - INDEX_PATH=/data/index.db
+    volumes:
+      - ./data:/data

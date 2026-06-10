@@ -1,0 +1,36 @@
+name: Ingest
+
+# Weekly re-index of the arXiv agentic-RAG corpus. Weekly is deliberate:
+# arXiv's politeness rules (CLAUDE.md §8) make more frequent crawls rude and
+# pointless for a research-tracking corpus.
+#
+# v0: runs on the Actions runner and publishes the index as a build artifact.
+# v0.1: graduates to a Cloud Run Job writing to a GCS bucket (no redeploy to
+# pick up a fresh index) — see infra/README.md.
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # Mondays 06:00 UTC
+  workflow_dispatch:
+
+jobs:
+  reindex:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --locked
+
+      - name: Ingest arXiv corpus (polite; ~15-20 min for ~300 abstracts)
+        env:
+          VOYAGE_API_KEY: ${{ secrets.VOYAGE_API_KEY }}
+          INDEX_PATH: data/index.db
+        run: uv run python -m app.ingest
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: index-db
+          path: data/index.db
+          retention-days: 30
