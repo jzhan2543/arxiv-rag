@@ -294,7 +294,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     settings = Settings.from_env()
     index_path = args.index if args.index is not None else settings.index_path
     llm = AnthropicLLM(api_key=settings.anthropic_api_key)
-    embedder = VoyageEmbedder(api_key=settings.voyage_api_key, input_type="query")
+    # max_retries=8: eval is batch work, so patience is free — the backoff
+    # rides out Voyage's 3 RPM cap on accounts without a payment method.
+    embedder = VoyageEmbedder(
+        api_key=settings.voyage_api_key, input_type="query", max_retries=8
+    )
     store = SqliteVecStore(index_path, dim=embedder.dim)
     agent = Agent(llm, embedder, store)
     judge: LLM | None = None if args.skip_faithfulness else llm

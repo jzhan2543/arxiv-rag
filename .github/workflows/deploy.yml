@@ -1,0 +1,59 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # WIF keyless auth (Stage 3)
+  packages: write # push to GHCR
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ github.sha }}
+            ${{ env.IMAGE }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # ------------------------------------------------------------------
+      # TODO(Stage 3): uncomment after completing infra/README.md (GCP
+      # project, WIF pool/provider, deploy SA, repo secrets WIF_PROVIDER +
+      # WIF_SERVICE_ACCOUNT).
+      #
+      # NOTE: Cloud Run cannot pull from ghcr.io directly — it only deploys
+      # images from Artifact Registry. The runbook sets up an Artifact
+      # Registry *remote repository* that proxies GHCR, so the deploy step
+      # references the proxy path below rather than ghcr.io. No second push
+      # needed.
+      # ------------------------------------------------------------------
+      # - uses: google-github-actions/auth@v2
+      #   with:
+      #     workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+      #     service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+      #
+      # - uses: google-github-actions/deploy-cloudrun@v2
+      #   with:
+      #     service: arxiv-rag
+      #     region: us-central1
+      #     image: us-central1-docker.pkg.dev/${{ vars.GCP_PROJECT }}/ghcr-remote/${{ github.repository }}:${{ github.sha }}
+      #     flags: --min-instances=0 --cpu-boost --execution-environment=gen2 --allow-unauthenticated

@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  lint-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v8.2.0
+        with:
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run ruff check .
+      - run: uv run mypy src
+      - run: uv run pytest -q
+
+  # Quality gate: full agent + judge over the committed semantic fixture index.
+  # Hermetic corpus, live model APIs (repo secrets). Thresholds sit under the
+  # measured baseline of 1.000/1.000/1.000 (PR #5). Make this a required check
+  # in branch protection so quality regressions block merge.
+  eval-gate:
+    runs-on: ubuntu-latest
+    needs: lint-test
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v8.2.0
+        with:
+          enable-cache: true
+      - run: uv sync --locked
+      - name: RAG eval gate
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          VOYAGE_API_KEY: ${{ secrets.VOYAGE_API_KEY }}
+        run: >
+          uv run python -m app.eval
+          --index tests/fixtures/index.db
+          --gate
+          --min-recall 0.7
+          --min-citation-acc 0.8
+          --min-faithfulness 0.85
