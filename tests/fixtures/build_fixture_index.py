@@ -1,16 +1,25 @@
 """Build the committed fixture index used by hermetic CI tests.
 
-Deterministic — same input text always yields the same vector via a SHA-256
-chain. The "embeddings" here are NOT semantic; they only exercise the storage
-+ search path. WS-E's eval gate must mock retrieval or build its own
-semantic-embedded fixture if it needs meaningful ranking.
+Two modes:
+
+  default (hash)   Deterministic SHA-256-chained pseudo-embeddings over the
+                   paraphrased texts below. Offline, reproducible, NOT
+                   semantic — exercises only the storage + search path.
+  --live           Fetches the same 10 papers' real titles/abstracts from
+                   arXiv (one polite request) and embeds them with Voyage
+                   (requires VOYAGE_API_KEY). Semantic: real query embeddings
+                   rank correctly against it, which the WS-E eval gate needs.
+
+The COMMITTED index.db is built with --live so `python -m app.eval` gives
+meaningful recall in CI. WS-B's storage tests pass against either mode.
 
 Run from repo root:
-    uv run python tests/fixtures/build_fixture_index.py
+    uv run python tests/fixtures/build_fixture_index.py [--live]
 """
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import math
 from pathlib import Path
@@ -117,21 +126,60 @@ def embed(text: str, dim: int = DIM) -> list[float]:
     return [f / norm for f in out] if norm > 0 else [0.0] * dim
 
 
+def _rows_hash() -> tuple[list[str], list[list[float]], list[dict[str, str]]]:
+    ids = [c[0] for c in CHUNKS]
+    vectors = [embed(c[3]) for c in CHUNKS]
+    metadata = [{"arxiv_id": c[1], "title": c[2], "text": c[3]} for c in CHUNKS]
+    return ids, vectors, metadata
+
+
+def _rows_live() -> tuple[list[str], list[list[float]], list[dict[str, str]]]:
+    """Real abstracts from arXiv + real Voyage embeddings (same 10 papers)."""
+    from app.config import Settings
+    from app.embed_api import VoyageEmbedder
+    from app.ingest import fetch_papers, make_client
+
+    paper_ids = [c[1] for c in CHUNKS]
+    papers = list(
+        fetch_papers(make_client(), query="", seed_ids=paper_ids, max_results=0)
+    )
+    if len(papers) != len(paper_ids):
+        fetched = {p.arxiv_id for p in papers}
+        raise RuntimeError(f"arXiv returned {len(papers)}/{len(paper_ids)}; "
+                           f"missing {set(paper_ids) - fetched}")
+    embedder = VoyageEmbedder(
+        api_key=Settings.from_env().voyage_api_key, input_type="document"
+    )
+    ids = [f"{p.arxiv_id}#0" for p in papers]
+    # Mirror app.ingest._embed_text: title + abstract go into the embedding.
+    vectors = embedder.embed([f"{p.title}\n\n{p.abstract}" for p in papers])
+    metadata = [
+        {"arxiv_id": p.arxiv_id, "title": p.title, "text": p.abstract} for p in papers
+    ]
+    return ids, vectors, metadata
+
+
 def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--live",
+        action="store_true",
+        help="fetch real abstracts from arXiv and embed with Voyage (needs VOYAGE_API_KEY)",
+    )
+    args = parser.parse_args()
+
+    ids, vectors, metadata = _rows_live() if args.live else _rows_hash()
+
     out_path = Path(__file__).parent / "index.db"
     if out_path.exists():
         out_path.unlink()
     store = SqliteVecStore(out_path, dim=DIM)
     try:
-        ids = [c[0] for c in CHUNKS]
-        vectors = [embed(c[3]) for c in CHUNKS]
-        metadata = [
-            {"arxiv_id": c[1], "title": c[2], "text": c[3]} for c in CHUNKS
-        ]
         store.upsert(ids, vectors, metadata)
     finally:
         store.close()
-    print(f"wrote {len(CHUNKS)} chunks to {out_path}")
+    mode = "live (arXiv + Voyage)" if args.live else "hash (offline)"
+    print(f"wrote {len(ids)} chunks to {out_path} [{mode}]")
 
 
 if __name__ == "__main__":
